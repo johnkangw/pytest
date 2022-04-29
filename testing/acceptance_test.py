@@ -1292,3 +1292,27 @@ def test_no_brokenpipeerror_message(pytester: Pytester) -> None:
 
     # Cleanup.
     popen.stderr.close()
+
+
+def test_unconfigure_exc_handling(pytester: Pytester) -> None:
+    pytester.makeconftest("""
+    import pytest
+    
+    @pytest.hookimpl
+    def pytest_configure(config: pytest.Config) -> None:
+        raise Exception("before")
+    
+    
+    @pytest.hookimpl
+    def pytest_unconfigure(config: pytest.Config) -> None:
+        raise Exception("after")
+        """)
+    pytester.makepyfile("""
+        def test_foo():
+            assert True
+            
+        def test_bar():
+            assert False
+    """)
+    output = pytester.runpytest_subprocess()
+    assert output.ret == ExitCode.TESTS_FAILED
