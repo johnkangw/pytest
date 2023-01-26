@@ -62,10 +62,8 @@ def _colorama_workaround() -> None:
     fail in various ways.
     """
     if sys.platform.startswith("win32"):
-        try:
+        with contextlib.suppress(ImportError):
             import colorama  # noqa: F401
-        except ImportError:
-            pass
 
 
 def _windowsconsoleio_workaround(stream: TextIO) -> None:
@@ -106,11 +104,7 @@ def _windowsconsoleio_workaround(stream: TextIO) -> None:
         return
 
     def _reopen_stdio(f, mode):
-        if not buffered and mode[0] == "w":
-            buffering = 0
-        else:
-            buffering = -1
-
+        buffering = 0 if not buffered and mode[0] == "w" else -1
         return io.TextIOWrapper(
             open(os.dup(f.fileno()), mode, buffering),
             f.encoding,
@@ -237,7 +231,7 @@ class SysCaptureBinary:
             if name == "stdin":
                 tmpfile = DontReadFromInput()
             else:
-                tmpfile = CaptureIO() if not tee else TeeCaptureIO(self._old)
+                tmpfile = TeeCaptureIO(self._old) if tee else CaptureIO()
         self.tmpfile = tmpfile
         self._state = "initialized"
 
@@ -504,17 +498,21 @@ class CaptureResult(Generic[AnyStr]):
         return tuple(self).index(value)
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, (CaptureResult, tuple)):
-            return NotImplemented
-        return tuple(self) == tuple(other)
+        return (
+            tuple(self) == tuple(other)
+            if isinstance(other, (CaptureResult, tuple))
+            else NotImplemented
+        )
 
     def __hash__(self) -> int:
         return hash(tuple(self))
 
     def __lt__(self, other: object) -> bool:
-        if not isinstance(other, (CaptureResult, tuple)):
-            return NotImplemented
-        return tuple(self) < tuple(other)
+        return (
+            tuple(self) < tuple(other)
+            if isinstance(other, (CaptureResult, tuple))
+            else NotImplemented
+        )
 
     def __repr__(self) -> str:
         return f"CaptureResult(out={self.out!r}, err={self.err!r})"
@@ -648,7 +646,7 @@ class CaptureManager:
         if self.is_globally_capturing():
             return "global"
         if self._capture_fixture:
-            return "fixture %s" % self._capture_fixture.request.fixturename
+            return f"fixture {self._capture_fixture.request.fixturename}"
         return False
 
     # Global capturing control
@@ -697,9 +695,7 @@ class CaptureManager:
             current_fixture = self._capture_fixture.request.fixturename
             requested_fixture = capture_fixture.request.fixturename
             capture_fixture.request.raiseerror(
-                "cannot use {} and {} at the same time".format(
-                    requested_fixture, current_fixture
-                )
+                f"cannot use {requested_fixture} and {current_fixture} at the same time"
             )
         self._capture_fixture = capture_fixture
 
@@ -859,9 +855,7 @@ class CaptureFixture(Generic[AnyStr]):
 
     def _is_started(self) -> bool:
         """Whether actively capturing -- not disabled or closed."""
-        if self._capture is not None:
-            return self._capture.is_started()
-        return False
+        return self._capture.is_started() if self._capture is not None else False
 
     @contextlib.contextmanager
     def disabled(self) -> Generator[None, None, None]:
