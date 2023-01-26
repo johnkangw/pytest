@@ -12,8 +12,7 @@ from _pytest.pytester import Pytester
 
 
 def prepend_pythonpath(*dirs) -> str:
-    cur = os.getenv("PYTHONPATH")
-    if cur:
+    if cur := os.getenv("PYTHONPATH"):
         dirs += (cur,)
     return os.pathsep.join(str(p) for p in dirs)
 
@@ -307,7 +306,7 @@ class TestGeneralUsage:
                     return MyCollector.from_parent(path=file_path, parent=parent)
         """
         )
-        result = pytester.runpytest(c.name + "::" + "xyz")
+        result = pytester.runpytest(f"{c.name}::xyz")
         assert result.ret == 0
         result.stdout.fnmatch_lines(["*1 pass*"])
 
@@ -338,7 +337,7 @@ class TestGeneralUsage:
                 pass
         """
         )
-        res = pytester.runpytest(p.name + "::" + "test_func[1]")
+        res = pytester.runpytest(f"{p.name}::test_func[1]")
         assert res.ret == 0
         res.stdout.fnmatch_lines(["*1 passed*"])
 
@@ -349,7 +348,7 @@ class TestGeneralUsage:
                 pass
         """
         )
-        res = pytester.runpytest(p.name + "::" + "test_notfound")
+        res = pytester.runpytest(f"{p.name}::test_notfound")
         assert res.ret
         res.stderr.fnmatch_lines(["*ERROR*not found*"])
 
@@ -358,7 +357,7 @@ class TestGeneralUsage:
 
         for name, value in vars(hookspec).items():
             if name.startswith("pytest_"):
-                assert value.__doc__, "no docstring for %s" % name
+                assert value.__doc__, f"no docstring for {name}"
 
     def test_initialization_error_issue49(self, pytester: Pytester) -> None:
         pytester.makeconftest(
@@ -723,7 +722,7 @@ class TestInvocationVariants:
                 pass
         """
         )
-        result = pytester.runpytest(str(p) + "::test", "--doctest-modules")
+        result = pytester.runpytest(f"{str(p)}::test", "--doctest-modules")
         result.stdout.fnmatch_lines(["*1 passed*"])
 
     def test_cmdline_python_package_symlink(
@@ -889,7 +888,7 @@ class TestDurations:
         for x in tested:
             for y in ("call",):  # 'setup', 'call', 'teardown':
                 for line in result.stdout.lines:
-                    if ("test_%s" % x) in line and y in line:
+                    if f"test_{x}" in line and y in line:
                         break
                 else:
                     raise AssertionError(f"not found {x} {y}")
@@ -902,7 +901,7 @@ class TestDurations:
         for x in "123":
             for y in ("call",):  # 'setup', 'call', 'teardown':
                 for line in result.stdout.lines:
-                    if ("test_%s" % x) in line and y in line:
+                    if f"test_{x}" in line and y in line:
                         break
                 else:
                     raise AssertionError(f"not found {x} {y}")

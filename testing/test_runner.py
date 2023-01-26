@@ -481,7 +481,7 @@ def test_callinfo() -> None:
     assert repr(ci) == "<CallInfo when='collect' result: 0>"
     assert str(ci) == "<CallInfo when='collect' result: 0>"
 
-    ci2 = runner.CallInfo.from_call(lambda: 0 / 0, "collect")
+    ci2 = runner.CallInfo.from_call(lambda: 1, "collect")
     assert ci2.when == "collect"
     assert not hasattr(ci2, "result")
     assert repr(ci2) == f"<CallInfo when='collect' excinfo={ci2.excinfo!r}>"
@@ -932,9 +932,9 @@ def test_current_test_env_var(pytester: Pytester, monkeypatch: MonkeyPatch) -> N
     assert result.ret == 0
     test_id = "test_current_test_env_var.py::test"
     assert pytest_current_test_vars == [
-        ("setup", test_id + " (setup)"),
-        ("call", test_id + " (call)"),
-        ("teardown", test_id + " (teardown)"),
+        ("setup", f"{test_id} (setup)"),
+        ("call", f"{test_id} (call)"),
+        ("teardown", f"{test_id} (teardown)"),
     ]
     assert "PYTEST_CURRENT_TEST" not in os.environ
 

@@ -108,7 +108,7 @@ def on_rm_rf_error(func, path: str, exc, *, start_path: Path) -> bool:
             # Stop when we reach the original path passed to rm_rf.
             if parent == start_path:
                 break
-    chmod_rw(str(path))
+    chmod_rw(path)
 
     func(path)
     return True
@@ -196,19 +196,15 @@ def _force_symlink(
     the inaccuracy is going to be acceptable.
     """
     current_symlink = root.joinpath(target)
-    try:
+    with contextlib.suppress(OSError):
         current_symlink.unlink()
-    except OSError:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         current_symlink.symlink_to(link_to)
-    except Exception:
-        pass
 
 
 def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
     """Create a directory with an increased number as suffix for the given prefix."""
-    for i in range(10):
+    for _ in range(10):
         # try up to 10 times to create the folder
         max_existing = max(map(parse_num, find_suffixes(root, prefix)), default=-1)
         new_number = max_existing + 1
@@ -218,13 +214,12 @@ def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
         except Exception:
             pass
         else:
-            _force_symlink(root, prefix + "current", new_path)
+            _force_symlink(root, f"{prefix}current", new_path)
             return new_path
-    else:
-        raise OSError(
-            "could not create numbered dir with prefix "
-            "{prefix} in {root} after 10 tries".format(prefix=prefix, root=root)
-        )
+    raise OSError(
+        "could not create numbered dir with prefix "
+        "{prefix} in {root} after 10 tries".format(prefix=prefix, root=root)
+    )
 
 
 def create_cleanup_lock(p: Path) -> Path:
@@ -253,10 +248,8 @@ def register_cleanup_lock_removal(lock_path: Path, register=atexit.register):
         if current_pid != original_pid:
             # fork
             return
-        try:
+        with contextlib.suppress(OSError):
             lock_path.unlink()
-        except OSError:
-            pass
 
     return register(cleanup_on_exit)
 
@@ -283,10 +276,8 @@ def maybe_delete_a_numbered_dir(path: Path) -> None:
         # If we created the lock, ensure we remove it even if we failed
         # to properly remove the numbered dir.
         if lock_path is not None:
-            try:
+            with contextlib.suppress(OSError):
                 lock_path.unlink()
-            except OSError:
-                pass
 
 
 def ensure_deletable(path: Path, consider_lock_dead_if_created_before: float) -> bool:
@@ -354,7 +345,7 @@ def make_numbered_dir_with_cleanup(
 ) -> Path:
     """Create a numbered dir with a cleanup lock and remove old ones."""
     e = None
-    for i in range(10):
+    for _ in range(10):
         try:
             p = make_numbered_dir(root, prefix, mode)
             lock_path = create_cleanup_lock(p)
@@ -379,10 +370,7 @@ def make_numbered_dir_with_cleanup(
 def resolve_from_str(input: str, rootpath: Path) -> Path:
     input = expanduser(input)
     input = expandvars(input)
-    if isabs(input):
-        return Path(input)
-    else:
-        return rootpath.joinpath(input)
+    return Path(input) if isabs(input) else rootpath.joinpath(input)
 
 
 def fnmatch_ex(pattern: str, path: Union[str, "os.PathLike[str]"]) -> bool:
@@ -544,8 +532,8 @@ def import_path(
 
         if module_file.endswith((".pyc", ".pyo")):
             module_file = module_file[:-1]
-        if module_file.endswith(os.path.sep + "__init__.py"):
-            module_file = module_file[: -(len(os.path.sep + "__init__.py"))]
+        if module_file.endswith(f"{os.path.sep}__init__.py"):
+            module_file = module_file[:-len(f"{os.path.sep}__init__.py")]
 
         try:
             is_same = _is_same(str(path), module_file)
